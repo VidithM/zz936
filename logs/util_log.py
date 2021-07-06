@@ -47,6 +47,24 @@ def logger_setup(log_config_path: str = None, log_template: str = "default", **k
 
 
     """
+
+    def validate_ipv4(addr):
+        if(addr == "localhost"):
+            return True
+        toks = addr.split('.')
+        if(len(toks) != 4):
+            return False 
+
+        for elem in toks:
+            try:
+                if(int(elem) >= 0 and int(elem) <= 255):
+                    continue
+            except:
+                return False
+            return False 
+
+        return True
+
     try:
         with open(log_config_path, "r") as fp:
             cfg = yaml.safe_load(fp)
@@ -61,19 +79,27 @@ def logger_setup(log_config_path: str = None, log_template: str = "default", **k
     rotation = globals_.pop("rotation")
 
     for handler in handlers:
-        if handler["sink"] == "sys.stdout":
+        if handler.get("sink") == "sys.stdout":
             handler["sink"] = sys.stdout
 
-        elif handler["sink"] == "sys.stderr":
+        elif handler.get("sink") == "sys.stderr":
             handler["sink"] = sys.stderr
 
-        elif handler["sink"].startswith("socket"):
+        elif handler.get("sink").startswith("socket"):
             sink_data = handler["sink"].split(",")
             ip = sink_data[1]
-            port = int(sink_data[2])
-            handler["sink"] = SocketHandler(ip, port)
+            if(validate_ipv4):
+                try:
+                    port = int(sink_data[2])
+                    handler["sink"] = SocketHandler(ip, port)
+                    continue
+                except:
+                    print('Invalid data format, using standard sink')
+            else:
+                print('Invalid data format, using standard sink')
+            handler["sink"] = sys.stdout
 
-        elif ".log" in handler["sink"] or ".txt" in handler["sink"]:
+        elif ".log" in handler.get("sink") or ".txt" in handler.get("sink"):
             handler["rotation"] = handler.get("rotation", rotation)
 
         # override globals values
